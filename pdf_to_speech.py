@@ -16,6 +16,8 @@ import os
 import re
 import sys
 from pathlib import Path
+from elevenlabs.client import ElevenLabs
+from elevenlabs.play import play
 
 VOICE_LANGUAGE = "he-IL"
 VOICE_NAME = "he-IL-Wavenet-B"   # male; alternatives: Wavenet-A/C/D
@@ -37,6 +39,17 @@ def extract_text(pdf_path: Path) -> str:
 
     full_text = "\n".join(pages)
     print(f"[1/4] Extracted text from {page_count} pages ({len(full_text)} chars)")
+    return full_text
+
+
+def extract_text_docx(path: Path) -> str:
+    try:
+        from docx import Document
+    except ImportError:
+        sys.exit("ERROR: python-docx not installed. Run: pip install python-docx")
+    doc = Document(str(path))
+    full_text = "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    print(f"[1/4] Extracted text from Word document ({len(full_text)} chars)")
     return full_text
 
 
@@ -140,45 +153,23 @@ def save_segments(segments: list[str], output_path: Path) -> None:
 
 
 def synthesize_segments(segments: list[str]) -> list[bytes]:
-    try:
-        from google.cloud import texttospeech
-    except ImportError:
-        sys.exit("ERROR: google-cloud-texttospeech not installed. Run: pip install google-cloud-texttospeech")
-
-    creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if not creds_path or not Path(creds_path).exists():
-        sys.exit(
-            "ERROR: Google Cloud credentials not found.\n"
-            "Set the environment variable:\n"
-            "  Windows: $env:GOOGLE_APPLICATION_CREDENTIALS = 'C:\\path\\to\\key.json'\n"
-            "  or add it permanently in System Environment Variables."
-        )
-
-    try:
-        client = texttospeech.TextToSpeechClient()
-    except Exception as e:
-        sys.exit(f"ERROR: Could not create TTS client: {e}")
-
-    voice = texttospeech.VoiceSelectionParams(
-        language_code=VOICE_LANGUAGE,
-        name=VOICE_NAME,
-    )
-    audio_config = texttospeech.AudioConfig(
-        audio_encoding=texttospeech.AudioEncoding.MP3,
-    )
-
     audio_chunks: list[bytes] = []
     total = len(segments)
+    client = ElevenLabs(
+        api_key="sk_1142bf83e8339c27834f25c80b5e32d9e6926c526d6bfae0"
+    )
 
     for i, segment in enumerate(segments, start=1):
         print(f"  TTS segment {i}/{total} ({len(segment.encode('utf-8'))} bytes)...")
         try:
-            response = client.synthesize_speech(
-                input=texttospeech.SynthesisInput(text=segment),
-                voice=voice,
-                audio_config=audio_config,
+            audio = client.text_to_speech.convert(
+                text=segment,
+                voice_id="JBFqnCBsd6RMkjVDRZzb",
+                model_id="eleven_v3",
+                output_format="mp3_44100_128",
             )
-            audio_chunks.append(response.audio_content)
+            chunk_bytes = b"".join(audio)
+            audio_chunks.append(chunk_bytes)
         except Exception as e:
             sys.exit(f"ERROR: TTS failed on segment {i}: {e}")
 
@@ -193,12 +184,12 @@ def concatenate_audio(audio_chunks: list[bytes], output_path: Path) -> None:
 
     combined = AudioSegment.empty()
     for chunk in audio_chunks:
-        segment = AudioSegment.from_mp3(io.BytesIO(chunk))
-        combined += segment
+        combined += AudioSegment.from_mp3(io.BytesIO(chunk))
 
-    combined.export(str(output_path), format="mp3")
+    # output_path can be a file path (Path) or a file-like object (BytesIO)
+    combined.export(output_path if isinstance(output_path, io.IOBase) else str(output_path), format="mp3")
     duration_sec = len(combined) / 1000
-    print(f"[4/4] Audio saved to: {output_path}  ({duration_sec:.1f}s)")
+    print(f"[4/4] Audio ready ({duration_sec:.1f}s)")
 
 
 def main() -> None:
@@ -222,6 +213,7 @@ def main() -> None:
     full_text = extract_text(pdf_path)
     full_text = clean_text(full_text)
     segments = segment_text(full_text)
+    segments = segments[:3]
     save_segments(segments, segments_path)
 
     print(f"[4/4] Converting {len(segments)} segments to speech...")

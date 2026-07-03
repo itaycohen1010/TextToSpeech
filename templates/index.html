@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ori The Hebrew King</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f2f0eb;
+      --surface: #ffffff;
+      --border: #d4c9b0;
+      --accent: #b8860b;
+      --accent-light: #e8d5a3;
+      --text: #1a1a1a;
+      --text-muted: #6b6560;
+      --radius: 20px;
+      --shadow: 0 8px 40px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 80px;
+      background-image:
+        radial-gradient(ellipse at 20% 10%, rgba(184,134,11,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 90%, rgba(184,134,11,0.04) 0%, transparent 60%);
+    }
+
+    /* ── Title ── */
+    .title-wrap {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(120deg, #1a1a1a 0%, #b8860b 45%, #1a1a1a 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 4s linear infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% center; }
+      100% { background-position: -200% center; }
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ── Drop zone ── */
+    #drop-zone {
+      position: relative;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    #drop-zone::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 0deg,
+        var(--accent) 0%,
+        var(--accent-light) 25%,
+        var(--border) 50%,
+        var(--accent-light) 75%,
+        var(--accent) 100%
+      );
+      animation: spin 6s linear infinite;
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), white calc(100% - 2px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 3px), white calc(100% - 2px));
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #drop-zone:hover,
+    #drop-zone.dragover {
+      transform: scale(1.04);
+      box-shadow: 0 16px 60px rgba(184,134,11,0.18);
+    }
+
+    #drop-zone.dragover::before {
+      animation-duration: 1.5s;
+    }
+
+    .drop-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      transition: transform 0.3s ease;
+      user-select: none;
+    }
+
+    #drop-zone:hover .drop-icon { transform: translateY(-4px); }
+
+    .drop-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.5;
+      padding: 0 24px;
+    }
+
+    .drop-label strong {
+      display: block;
+      color: var(--text);
+      font-size: 1rem;
+      margin-bottom: 4px;
+    }
+
+    #file-input { display: none; }
+
+    /* ── Loading state ── */
+    #drop-zone.loading::before {
+      background: conic-gradient(var(--accent) 25%, transparent 25%);
+      animation: spin 0.8s linear infinite;
+    }
+
+    #drop-zone.loading .drop-icon { opacity: 0; }
+    #drop-zone.loading .drop-label { opacity: 0; }
+
+    .loading-text {
+      position: absolute;
+      font-size: 0.8rem;
+      color: var(--accent);
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    #drop-zone.loading .loading-text { opacity: 1; }
+
+    /* ── Result ── */
+    #result {
+      margin-top: 56px;
+      width: 100%;
+      max-width: 520px;
+      opacity: 0;
+      transform: translateY(24px);
+      animation: rise 0.5s ease forwards;
+    }
+
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .audio-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .audio-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    audio {
+      width: 100%;
+      height: 40px;
+      border-radius: 50px;
+      outline: none;
+      accent-color: var(--accent);
+    }
+
+    /* ── Error ── */
+    #error-msg {
+      margin-top: 24px;
+      padding: 14px 22px;
+      background: #fff0f0;
+      border: 1px solid #ffcccc;
+      border-radius: 12px;
+      color: #c0392b;
+      font-size: 0.85rem;
+      display: none;
+      max-width: 400px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="title-wrap">
+    <h1>Ori The Hebrew King</h1>
+    <p class="subtitle">PDF &amp; Word · Hebrew Speech · Powered by AI</p>
+  </div>
+
+  <div id="drop-zone" role="button" aria-label="העלה קובץ PDF או Word">
+    <div class="drop-icon">📄</div>
+    <div class="drop-label">
+      <strong>גרור קובץ לכאן</strong>
+      PDF או Word
+    </div>
+    <span class="loading-text">מעבד...</span>
+    <input id="file-input" type="file" accept=".pdf,.doc,.docx" />
+  </div>
+
+  <div id="error-msg"></div>
+  <div id="result"></div>
+
+  <script>
+    const zone = document.getElementById('drop-zone');
+    const input = document.getElementById('file-input');
+    const result = document.getElementById('result');
+    const errorMsg = document.getElementById('error-msg');
+
+    zone.addEventListener('click', () => input.click());
+
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    input.addEventListener('change', () => {
+      if (input.files[0]) handleFile(input.files[0]);
+    });
+
+    async function handleFile(file) {
+      errorMsg.style.display = 'none';
+      result.innerHTML = '';
+      zone.classList.add('loading');
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/process', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          showError(data.error || 'שגיאה לא ידועה');
+          return;
+        }
+
+        const blob = b64ToBlob(data.audio, 'audio/mpeg');
+        const url = URL.createObjectURL(blob);
+
+        result.innerHTML = `
+          <div class="audio-card">
+            <div class="audio-label">🎧 מוכן להאזנה</div>
+            <audio controls autoplay src="${url}"></audio>
+          </div>
+        `;
+
+      } catch (err) {
+        showError('שגיאת רשת — ודא שהשרת פועל');
+      } finally {
+        zone.classList.remove('loading');
+        input.value = '';
+      }
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.style.display = 'block';
+    }
+
+    function b64ToBlob(b64, mime) {
+      const bytes = atob(b64);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      return new Blob([arr], { type: mime });
+    }
+
+
+  </script>
+</body>
+</html>
